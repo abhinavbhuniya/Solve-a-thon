@@ -8,8 +8,7 @@ import { renderNav, updateNavActive } from '../components/nav.js';
 const STATUS_FLOW = [
   { status: 'received', emoji: '📥', label: 'Received', tamil: 'பெற்றது', color: 'var(--info)' },
   { status: 'washing', emoji: '🧺', label: 'Washing', tamil: 'துவைப்பு', color: 'var(--warning)' },
-  { status: 'ready', emoji: '✅', label: 'Ready', tamil: 'தயார்', color: 'var(--success)' },
-  { status: 'collected', emoji: '📦', label: 'Collected', tamil: 'சேகரிக்கப்பட்டது', color: 'var(--text-tertiary)' },
+  { status: 'ready', emoji: '✅', label: 'Ready', tamil: 'தயார்', color: 'var(--success)' }
 ];
 
 export default async function staffUpdate(container) {
