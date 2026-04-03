@@ -1,6 +1,6 @@
 // ── Student Track Page ──
 import { getCurrentUser } from '../services/database.js';
-import { getOrdersByStudent, subscribeToOrders } from '../services/database.js';
+import { getOrdersByStudent, subscribeToOrders, updateOrderStatus } from '../services/database.js';
 import { renderNav, updateNavActive } from '../components/nav.js';
 
 const STATUSES = ['submitted', 'received', 'washing', 'ready', 'collected'];
@@ -84,6 +84,15 @@ export default async function studentTrack(container, params = {}) {
         ` : ''}
       </div>
     `;
+
+    const collectBtn = container.querySelector('#btn-mark-collected');
+    if (collectBtn) {
+      collectBtn.addEventListener('click', async () => {
+        collectBtn.disabled = true;
+        collectBtn.innerText = 'Updating...';
+        await updateOrderStatus(collectBtn.dataset.id, 'collected');
+      });
+    }
   }
 
   function renderOrderDetail(order) {
@@ -136,6 +145,9 @@ export default async function studentTrack(container, params = {}) {
           <div class="rack-number">Rack #${order.rackNo}</div>
           <p class="rack-label">Your laundry is ready for pickup!</p>
           <p class="text-xs text-secondary mt-2">Present your token to the staff</p>
+          <button class="btn btn-success btn-block mt-4" id="btn-mark-collected" data-id="${order.id}">
+            📦 Mark as Collected
+          </button>
         </div>
       ` : ''}
 

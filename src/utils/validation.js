@@ -54,23 +54,11 @@ export function isValidGenderBlockCombo(gender, block) {
   return allowed.includes(block);
 }
 
-export function parseRoom(floorStr, indexStr) {
-  const floor = parseInt(floorStr, 10);
-  const index = parseInt(indexStr, 10);
-
-  if (isNaN(floor) || floor < 1 || floor > 16) {
-    return { valid: false, error: 'Floor must be between 1 and 16.' };
+export function parseRoom(roomStr) {
+  if (!roomStr || roomStr.trim() === '') {
+    return { valid: false, error: 'Room number is required.' };
   }
-
-  if (isNaN(index) || index < 1 || index > 35) {
-    return { valid: false, error: 'Room index must be between 1 and 35.' };
-  }
-
-  // Combine into string e.g., floor 1, index 1 -> '101'
-  const formattedIndex = index.toString().padStart(2, '0');
-  const roomCombined = `${floor}${formattedIndex}`;
-
-  return { valid: true, room: roomCombined };
+  return { valid: true, room: roomStr.trim() };
 }
 
 export function validateTokenLimit(tokenVal) {

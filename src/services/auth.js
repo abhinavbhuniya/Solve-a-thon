@@ -14,7 +14,7 @@ const DEFAULT_USERS = [
   {
     id: 'student_1',
     name: 'Abhinav Kumar',
-    regNo: 'RA2211003010456',
+    regNo: '24BCE1731',
     phone: '9876543210',
     roomNo: '305',
     hostelBlock: 'A-Block',
@@ -24,7 +24,7 @@ const DEFAULT_USERS = [
   {
     id: 'student_2',
     name: 'Rahul Sharma',
-    regNo: 'RA2211003010123',
+    regNo: '24BCE1732',
     phone: '9876543211',
     roomNo: '412',
     hostelBlock: 'B-Block',
@@ -34,7 +34,7 @@ const DEFAULT_USERS = [
   {
     id: 'student_3',
     name: 'Priya Patel',
-    regNo: 'RA2211003010789',
+    regNo: '24BCE1733',
     phone: '9876543212',
     roomNo: '210',
     hostelBlock: 'A-Block',

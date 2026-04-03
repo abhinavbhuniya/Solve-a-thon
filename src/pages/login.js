@@ -23,7 +23,7 @@ export default function loginPage(container) {
       <form id="student-login-form" class="login-form">
         <div class="input-group">
           <label for="login-reg-no">Registration Number</label>
-          <input type="text" id="login-reg-no" class="input" placeholder="e.g., RA2211003010456" required autocomplete="username" />
+          <input type="text" id="login-reg-no" class="input" placeholder="e.g., 24BCE1731" required autocomplete="username" />
         </div>
         <button type="submit" class="btn btn-primary btn-lg btn-block mt-4" id="login-student-btn">
           🎓 Quick Login
@@ -34,7 +34,7 @@ export default function loginPage(container) {
       <form id="student-reg-form" class="login-form hidden">
         <div class="input-group">
           <label for="reg-no">Registration Number</label>
-          <input type="text" id="reg-no" class="input" placeholder="e.g., RA2211003010456" required autocomplete="username" />
+          <input type="text" id="reg-no" class="input" placeholder="e.g., 24BCE1731" required autocomplete="username" />
         </div>
         <div class="input-group">
           <label for="student-name">Full Name</label>
@@ -56,15 +56,9 @@ export default function loginPage(container) {
             </select>
           </div>
         </div>
-        <div class="flex gap-3">
-          <div class="input-group" style="flex:1">
-            <label for="room-floor">Floor (1-16)</label>
-            <input type="number" id="room-floor" class="input" min="1" max="16" placeholder="Floor" required />
-          </div>
-          <div class="input-group" style="flex:1">
-            <label for="room-index">Room (1-35)</label>
-            <input type="number" id="room-index" class="input" min="1" max="35" placeholder="Index" required />
-          </div>
+        <div class="input-group">
+          <label for="room-no">Room Number</label>
+          <input type="text" id="room-no" class="input" placeholder="e.g., 429" required />
         </div>
         <div class="input-group">
           <label for="phone">Phone Number (optional)</label>
@@ -178,11 +172,10 @@ export default function loginPage(container) {
       const name = container.querySelector('#student-name').value.trim();
       const gender = container.querySelector('#student-gender').value;
       const block = container.querySelector('#hostel-block').value;
-      const floor = container.querySelector('#room-floor').value;
-      const roomIdx = container.querySelector('#room-index').value;
+      const roomNo = container.querySelector('#room-no').value;
       const phone = container.querySelector('#phone').value.trim();
 
-      if (!regNo || !name || !gender || !block || !floor || !roomIdx) {
+      if (!regNo || !name || !gender || !block || !roomNo) {
         showToast('Please fill in required fields', 'error');
         return;
       }
@@ -193,7 +186,7 @@ export default function loginPage(container) {
         return;
       }
 
-      const roomParsed = parseRoom(floor, roomIdx);
+      const roomParsed = parseRoom(roomNo);
       if (!roomParsed.valid) {
         showToast(roomParsed.error, 'error');
         return;
