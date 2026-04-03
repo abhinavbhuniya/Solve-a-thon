@@ -112,7 +112,8 @@ export default async function staffUpdate(container) {
   function renderStatusSelection() {
     if (!selectedOrder) return '<p>No order found for this token.</p>';
 
-    const currentIdx = ['submitted', 'received', 'washing', 'ready', 'collected'].indexOf(selectedOrder.status);
+    // Calculate index relative to STATUS_FLOW to align with the rendered buttons
+    const currentIdx = STATUS_FLOW.findIndex(s => s.status === selectedOrder.status);
 
     return `
       <!-- Current Order Info -->
