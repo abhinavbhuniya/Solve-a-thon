@@ -27,6 +27,7 @@
   --bg-elevated: #1E293B;
   --bg-card: rgba(30, 41, 59, 0.8);
   --bg-glass: rgba(30, 41, 59, 0.6);
+  --bg-nav: rgba(15, 23, 42, 0.95);
 
   /* Colors — Text */
   --text-primary: #F8FAFC;
@@ -102,6 +103,26 @@
   --nav-height: 64px;
   --header-height: 56px;
   --max-width: 480px;
+}
+
+/* ── Light Theme Overrides ── */
+[data-theme="light"] {
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #F1F5F9;
+  --bg-tertiary: #E2E8F0;
+  --bg-elevated: #FFFFFF;
+  --bg-card: rgba(255, 255, 255, 0.8);
+  --bg-glass: rgba(255, 255, 255, 0.6);
+  --bg-nav: rgba(255, 255, 255, 0.95);
+
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-tertiary: #64748B;
+  --text-inverse: #F8FAFC;
+
+  --border-subtle: rgba(15, 23, 42, 0.1);
+  --border-medium: rgba(15, 23, 42, 0.2);
+  --border-strong: rgba(15, 23, 42, 0.3);
 }
 
 /* ── Reset & Base ── */
@@ -709,7 +730,7 @@ h4 { font-size: var(--font-size-lg); }
   width: 100%;
   max-width: var(--max-width);
   height: var(--nav-height);
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--bg-nav);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-subtle);
@@ -787,6 +808,45 @@ h4 { font-size: var(--font-size-lg); }
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
+
+/* ── Theme Toggle Button ── */
+.theme-toggle {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  cursor: pointer;
+  z-index: var(--z-sticky);
+  transition: all var(--transition-base);
+}
+
+.theme-toggle:hover {
+  background: var(--bg-secondary);
+  border-color: var(--primary);
+  transform: scale(1.05);
+}
+
+.theme-toggle:active {
+  transform: scale(0.95);
+}
+
+.theme-toggle .icon-dark, .theme-toggle .icon-light {
+  transition: opacity var(--transition-fast), transform var(--transition-base);
+}
+
+.theme-toggle .hidden-icon {
+  display: none;
+}
+
 
 /* ── Stats Cards ── */
 .stats-grid {

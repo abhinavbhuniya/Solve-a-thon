@@ -69,8 +69,46 @@ function setupOfflineDetection() {
   updateStatus();
 }
 
+// ── Theme Setup ──
+function setupTheme() {
+  const toggleBtn = document.getElementById('theme-toggle');
+  const iconDark = toggleBtn?.querySelector('.icon-dark');
+  const iconLight = toggleBtn?.querySelector('.icon-light');
+  
+  // Initialize from storage or default to dark
+  const currentTheme = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  
+  if (currentTheme === 'light') {
+    iconDark?.classList.add('hidden-icon');
+    iconLight?.classList.remove('hidden-icon');
+  } else {
+    iconLight?.classList.add('hidden-icon');
+    iconDark?.classList.remove('hidden-icon');
+  }
+
+  toggleBtn?.addEventListener('click', () => {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const newTheme = isLight ? 'dark' : 'light';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    
+    if (newTheme === 'light') {
+      iconDark?.classList.add('hidden-icon');
+      iconLight?.classList.remove('hidden-icon');
+    } else {
+      iconLight?.classList.add('hidden-icon');
+      iconDark?.classList.remove('hidden-icon');
+    }
+  });
+}
+
 // ── Initialize App ──
 function init() {
+  // Setup theme
+  setupTheme();
+  
   // Check auth before routing
   checkAuth();
   
