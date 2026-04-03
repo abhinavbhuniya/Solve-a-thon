@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0F172A" />
+  <meta name="description" content="Chota Dhobi - Smart hostel laundry tracking & coordination system. Track your laundry, get notified when it's ready." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Chota Dhobi" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+  <title>Chota Dhobi — Hostel Laundry</title>
+</head>
+<body>
+  <!-- Splash Screen -->
+  <div id="splash" class="loading-page">
+    <div style="font-size: 4rem; animation: float 2s ease-in-out infinite;">👕</div>
+    <div class="spinner"></div>
+  </div>
+
+  <!-- App Container -->
+  <div id="app" class="hidden">
+    <div class="bg-pattern"></div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+    
+    <!-- Offline Bar -->
+    <div id="offline-bar" class="offline-bar hidden">📡 You're offline — changes will sync when connected</div>
+
+    <!-- Main Content (pages rendered here) -->
+    <main id="main-content"></main>
+
+    <!-- Bottom Navigation -->
+    <nav id="bottom-nav" class="bottom-nav hidden">
+      <!-- Rendered by nav.js -->
+    </nav>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

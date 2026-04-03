@@ -1,0 +1,20 @@
+{
+  "name": "solve-a-thon",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.0.1"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
+    "firebase": "^12.11.0",
+    "idb": "^8.0.3",
+    "vite-plugin-pwa": "^1.2.0"
+  }
+}
