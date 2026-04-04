@@ -1,4 +1,4 @@
-import { isStaff, isStudent } from '../services/database.js';
+import { isStaff, isStudent, isAdmin } from '../services/database.js';
 import { getUnreadCount } from '../services/database.js';
 import { getCurrentUser } from '../services/database.js';
 
@@ -17,11 +17,22 @@ const STAFF_NAV = [
   { id: 'staff-orders', icon: '📋', label: 'Orders', route: '#/staff/orders' },
 ];
 
+const ADMIN_NAV = [
+  { id: 'admin-home', icon: '⚙️', label: 'Dashboard', route: '#/admin' },
+  { id: 'admin-schedules', icon: '📅', label: 'Schedules', route: '#/admin/schedules' },
+  { id: 'admin-analytics', icon: '📊', label: 'Analytics', route: '#/admin/analytics' },
+  { id: 'admin-tokens', icon: '🏷️', label: 'Tokens', route: '#/admin/tokens' },
+];
+
 export function renderNav(role) {
   const nav = document.getElementById('bottom-nav');
   if (!nav) return;
 
-  const items = role === 'staff' ? STAFF_NAV : STUDENT_NAV;
+  let items;
+  if (role === 'admin') items = ADMIN_NAV;
+  else if (role === 'staff') items = STAFF_NAV;
+  else items = STUDENT_NAV;
+
   const currentHash = window.location.hash || '#/student';
 
   nav.innerHTML = items.map(item => `

@@ -1,6 +1,7 @@
 // ── Staff Home/Dashboard Page ──
 import { getCurrentUser, logout } from '../services/database.js';
-import { getStats, getTodaysOrders, getActiveOrders } from '../services/database.js';
+import { getStats, getTodaysOrders } from '../services/database.js';
+import { getScheduleForDate } from '../services/schedule.js';
 import { renderNav, updateNavActive } from '../components/nav.js';
 
 export default async function staffHome(container) {
@@ -12,8 +13,14 @@ export default async function staffHome(container) {
 
   container.innerHTML = `<div class="page" style="display:flex; justify-content:center; align-items:center; height:100vh;"><p>Loading stats...</p></div>`;
 
+  const today = new Date().toISOString().split('T')[0];
   const stats = await getStats();
   const todaysOrders = await getTodaysOrders();
+  const todaySchedule = await getScheduleForDate(today);
+
+  const capacity = todaySchedule ? todaySchedule.capacity : 100;
+  const booked = todaySchedule ? todaySchedule.booked_count : todaysOrders.length;
+  const capacityPct = capacity > 0 ? Math.round((booked / capacity) * 100) : 0;
 
   container.innerHTML = `
     <div class="page">
@@ -33,6 +40,18 @@ export default async function staffHome(container) {
           ${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
         <p class="text-xs text-secondary mt-1">Total Orders: ${stats.total}</p>
+        
+        <!-- Capacity Bar -->
+        <div class="capacity-bar-wrapper mt-4">
+          <div class="flex justify-between text-xs text-secondary mb-1">
+            <span>Today's Capacity</span>
+            <span>${booked} / ${capacity} (${capacityPct}%)</span>
+          </div>
+          <div class="capacity-bar">
+            <div class="capacity-bar-fill ${capacityPct > 90 ? 'critical' : capacityPct > 70 ? 'warning' : ''}" 
+                 style="width: ${capacityPct}%"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Stats Grid -->
@@ -108,7 +127,6 @@ export default async function staffHome(container) {
     </div>
   `;
 
-  // Logout handler
   container.querySelector('#logout-btn')?.addEventListener('click', () => {
     if (confirm('Confirm logout? / வெளியேற விரும்புகிறீர்களா?')) {
       logout();

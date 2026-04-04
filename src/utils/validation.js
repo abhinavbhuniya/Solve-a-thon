@@ -2,10 +2,6 @@ export function validateRegistration(regNo) {
   if (!regNo) return { valid: false, error: 'Registration number is required' };
 
   // Format: YYBXXNNNN
-  // YY: 22, 23, 24, 25
-  // B: Fixed strictly
-  // XX: 2 uppercase letters
-  // NNNN: 4 digit roll number
   const regex = /^(22|23|24|25)B([A-Z]{2})(\d{4})$/;
   const match = regNo.trim().toUpperCase().match(regex);
 
@@ -20,7 +16,6 @@ export function validateRegistration(regNo) {
   const roll = parseInt(match[3], 10);
 
   if (branch === 'CE') {
-    // CE represents CSE: 1000-1999 or 5000-5999
     if (!((roll >= 1000 && roll <= 1999) || (roll >= 5000 && roll <= 5999))) {
       return {
         valid: false,
@@ -28,7 +23,6 @@ export function validateRegistration(regNo) {
       };
     }
   } else {
-    // Other valid branches: 1000-1999
     if (roll < 1000 || roll > 1999) {
       return {
         valid: false,
@@ -69,10 +63,33 @@ export function validateTokenLimit(tokenVal) {
   return true;
 }
 
-export function validateItemCount(count) {
-  const cnt = parseInt(count, 10);
-  if (isNaN(cnt) || cnt < 1 || cnt > 9999) {
-    return false;
+export function validateDateSelection(date) {
+  if (!date) return { valid: false, error: 'Please select a date.' };
+
+  const selected = new Date(date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (isNaN(selected.getTime())) {
+    return { valid: false, error: 'Invalid date format.' };
   }
-  return true;
+
+  if (selected < today) {
+    return { valid: false, error: 'Cannot select a past date.' };
+  }
+
+  const dow = selected.getDay();
+  if (dow === 0 || dow === 6) {
+    return { valid: false, error: 'Laundry service is not available on weekends.' };
+  }
+
+  return { valid: true };
+}
+
+export function validateCapacity(booked, capacity) {
+  return booked < capacity;
+}
+
+export function validateMonthlyLimit(used, limit) {
+  return used < limit;
 }

@@ -1,4 +1,8 @@
 import { supabase } from '../supabase.js';
+import { assignToken, updateTokenStatus as updateTokenState, releaseToken, orderStatusToTokenStatus } from './token.js';
+import { bookSlot, releaseSlot } from './schedule.js';
+import { validateSubmission, checkMonthlyLimit, checkActiveOrder, MONTHLY_LIMIT } from './constraints.js';
+import { processWaitlist } from './waitlist.js';
 
 // ── Transformers ──
 // Map snake_case DB rows to camelCase App models
@@ -27,7 +31,10 @@ function mapOrder(o) {
     roomNo: o.room_no,
     status: o.status,
     rackNo: o.rack_no,
-    itemCount: o.item_count,
+    scheduledDate: o.scheduled_date,
+    isPriority: o.is_priority || false,
+    creditsUsed: o.credits_used || 1,
+    missed: o.missed || false,
     submittedAt: o.submitted_at,
     updatedAt: o.updated_at,
     date: o.submitted_at ? o.submitted_at.split('T')[0] : null
@@ -51,6 +58,9 @@ function mapNotification(n) {
 
 // ── Authentication ──
 
+const STAFF_PIN = '1234';
+const ADMIN_PIN = '9999';
+
 export async function loginAsStudent(regNo, name, gender, roomNo, hostelBlock, phone) {
   let { data: user, error } = await supabase
     .from('students')
@@ -59,9 +69,6 @@ export async function loginAsStudent(regNo, name, gender, roomNo, hostelBlock, p
     .single();
 
   if (!user && (error?.code === 'PGRST116' || error?.details?.includes('0 rows'))) {
-    const schedule = getSchedule();
-    const day = schedule[hostelBlock || 'A-Block'] ? Object.keys(schedule).find(k => schedule[k].blocks.includes(hostelBlock)) || 'Monday' : 'Monday';
-    
     const { data: newUser, error: insertError } = await supabase
       .from('students')
       .insert([{
@@ -71,7 +78,7 @@ export async function loginAsStudent(regNo, name, gender, roomNo, hostelBlock, p
         phone: phone || '',
         room_no: roomNo || '',
         hostel_block: hostelBlock || 'A-Block',
-        laundry_day: day
+        laundry_day: getBlockDay(hostelBlock) || 'Monday'
       }])
       .select()
       .single();
@@ -83,8 +90,8 @@ export async function loginAsStudent(regNo, name, gender, roomNo, hostelBlock, p
   }
 
   if (user && user.gender !== gender) {
-     await supabase.from('students').update({ gender }).eq('id', user.id);
-     user.gender = gender;
+    await supabase.from('students').update({ gender }).eq('id', user.id);
+    user.gender = gender;
   }
 
   const mappedUser = mapStudent(user);
@@ -109,10 +116,17 @@ export async function quickLoginStudent(regNo) {
 }
 
 export function loginAsStaff(pin) {
-  if (pin !== '1234') return null;
+  if (pin !== STAFF_PIN) return null;
   const staffUser = { id: 'staff_1', name: 'Laundry Staff', role: 'staff' };
   localStorage.setItem('chotadhobi_current_user', JSON.stringify(staffUser));
   return staffUser;
+}
+
+export function loginAsAdmin(pin) {
+  if (pin !== ADMIN_PIN) return null;
+  const adminUser = { id: 'admin_1', name: 'Administrator', role: 'admin' };
+  localStorage.setItem('chotadhobi_current_user', JSON.stringify(adminUser));
+  return adminUser;
 }
 
 export function getCurrentUser() {
@@ -146,7 +160,26 @@ export function isStudent() {
   return u && u.role === 'student';
 }
 
-// ── Schedule (Local config for now) ──
+export function isAdmin() {
+  const u = getCurrentUser();
+  return u && u.role === 'admin';
+}
+
+// ── Block to Day helper ──
+function getBlockDay(block) {
+  const map = {
+    'A-Block': 'Monday',
+    'B-Block': 'Tuesday',
+    'C-Block': 'Wednesday',
+    'D-Block': 'Thursday',
+    'D1-Block': 'Thursday',
+    'D2-Block': 'Thursday',
+    'E-Block': 'Friday'
+  };
+  return map[block] || 'Monday';
+}
+
+// ── Schedule (Dynamic from DB, with local fallback) ──
 const DEFAULT_SCHEDULE = {
   Monday: { blocks: ['A-Block'], timeSlot: '8:00 AM - 12:00 PM', description: 'A-Block Laundry Day / A-பிளாக் சலவை நாள்' },
   Tuesday: { blocks: ['B-Block'], timeSlot: '8:00 AM - 12:00 PM', description: 'B-Block Laundry Day / B-பிளாக் சலவை நாள்' },
@@ -167,20 +200,24 @@ export function getScheduleForDay(day) {
 
 // ── Orders ──
 
-export async function createOrder({ tokenNo, studentId, studentName, roomNo, itemCount }) {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+export async function createOrder({ tokenNo, studentId, studentName, roomNo, scheduledDate, isPriority }) {
+  const dateStr = scheduledDate || new Date().toISOString().split('T')[0];
+  const creditCost = isPriority ? 2 : 1;
 
-  const { data: existing } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('token_no', tokenNo)
-    .gte('submitted_at', todayStart.toISOString());
-
-  if (existing && existing.length > 0) {
-    return { error: 'Token already used today' };
+  // ── Backend validation ──
+  const validation = await validateSubmission(studentId, dateStr, tokenNo, isPriority);
+  if (!validation.valid) {
+    const firstErr = validation.errors[0];
+    return { error: firstErr.message, validationErrors: validation.errors };
   }
 
+  // ── Book slot (atomic capacity increment) ──
+  const slotResult = await bookSlot(dateStr);
+  if (slotResult.error) {
+    return { error: slotResult.error };
+  }
+
+  // ── Create order ──
   const { data: order, error } = await supabase
     .from('orders')
     .insert([{
@@ -188,18 +225,34 @@ export async function createOrder({ tokenNo, studentId, studentName, roomNo, ite
       student_id: studentId,
       student_name: studentName,
       room_no: roomNo,
-      item_count: itemCount || null,
-      status: 'submitted'
+      status: 'submitted',
+      scheduled_date: dateStr,
+      is_priority: isPriority || false,
+      credits_used: creditCost
     }])
     .select()
     .single();
 
-  if (error) return { error: error.message };
+  if (error) {
+    // Rollback slot booking on insert failure
+    await releaseSlot(dateStr);
+    return { error: error.message };
+  }
 
+  // ── Assign token ──
+  const tokenResult = await assignToken(parseInt(tokenNo), order.id);
+  if (tokenResult.error) {
+    // Rollback: delete the order and release slot
+    await supabase.from('orders').delete().eq('id', order.id);
+    await releaseSlot(dateStr);
+    return { error: tokenResult.error };
+  }
+
+  // ── Notification ──
   await addNotification({
     userId: studentId,
     title: 'Laundry Submitted',
-    body: `Token #${tokenNo} — Your laundry has been submitted successfully.`,
+    body: `Token #${tokenNo} — Your laundry has been submitted for ${dateStr}.${isPriority ? ' ⚡ Priority booking.' : ''}`,
     type: 'status_update',
     orderId: order.id
   });
@@ -249,10 +302,10 @@ export async function getOrderById(orderId) {
 export async function getOrderByToken(tokenNo, dateStr) {
   let queryStart;
   if(dateStr) {
-     queryStart = new Date(dateStr);
+    queryStart = new Date(dateStr);
   } else {
-     queryStart = new Date();
-     queryStart.setHours(0,0,0,0);
+    queryStart = new Date();
+    queryStart.setHours(0,0,0,0);
   }
   const { data } = await supabase
     .from('orders')
@@ -261,18 +314,17 @@ export async function getOrderByToken(tokenNo, dateStr) {
     .gte('submitted_at', queryStart.toISOString())
     .limit(1)
     .single();
-    
+
   return mapOrder(data);
 }
 
 export async function updateOrderStatus(orderId, newStatus, extra = {}) {
-  const updates = { 
+  const updates = {
     status: newStatus,
     updated_at: new Date().toISOString()
   };
-  
+
   if (extra.rackNo) updates.rack_no = extra.rackNo;
-  // Let's set timestamps for legacy behavior if needed (which are mapped internally, but we'll stick to updated_at for now)
 
   const { data: order, error } = await supabase
     .from('orders')
@@ -283,6 +335,21 @@ export async function updateOrderStatus(orderId, newStatus, extra = {}) {
 
   if (error) return { error: error.message };
 
+  // ── Sync token lifecycle ──
+  const tokenStatus = orderStatusToTokenStatus(newStatus);
+  await updateTokenState(order.token_no, tokenStatus);
+
+  // ── If collected, release token and possibly process waitlist ──
+  if (newStatus === 'collected') {
+    await releaseToken(order.token_no);
+    // Release capacity and process waitlist if applicable
+    if (order.scheduled_date) {
+      await releaseSlot(order.scheduled_date);
+      await processWaitlist(order.scheduled_date);
+    }
+  }
+
+  // ── Notifications ──
   const statusMessages = {
     received: { title: '📥 Laundry Received', body: `Token #${order.token_no} — Staff has received your laundry.` },
     washing: { title: '🧺 Washing In Progress', body: `Token #${order.token_no} — Your clothes are being washed.` },
@@ -353,7 +420,7 @@ export async function getStats() {
     .from('orders')
     .select('status')
     .gte('submitted_at', todayStart.toISOString());
-    
+
   let stats = { submitted: 0, received: 0, washing: 0, ready: 0, collected: 0, total: 0 };
   if (data) {
     data.forEach(o => {
@@ -364,15 +431,88 @@ export async function getStats() {
   return stats;
 }
 
+// ── Analytics Data (Admin) ──
+
+export async function getOrdersForAnalytics(startDate, endDate) {
+  const { data } = await supabase
+    .from('orders')
+    .select('*')
+    .gte('submitted_at', startDate)
+    .lte('submitted_at', endDate)
+    .order('submitted_at', { ascending: true });
+
+  return (data || []).map(mapOrder);
+}
+
+export async function getDailyStats(startDate, endDate) {
+  const orders = await getOrdersForAnalytics(startDate, endDate);
+
+  // Group by date
+  const byDate = {};
+  orders.forEach(o => {
+    const date = o.date;
+    if (!byDate[date]) {
+      byDate[date] = { date, submitted: 0, received: 0, washing: 0, ready: 0, collected: 0, total: 0, priority: 0, missed: 0 };
+    }
+    byDate[date][o.status]++;
+    byDate[date].total++;
+    if (o.isPriority) byDate[date].priority++;
+    if (o.missed) byDate[date].missed++;
+  });
+
+  return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export async function getStudentAnalytics(startDate, endDate) {
+  const { data } = await supabase
+    .from('orders')
+    .select('student_id, student_name, room_no, status, scheduled_date, is_priority, missed, submitted_at')
+    .gte('submitted_at', startDate)
+    .lte('submitted_at', endDate);
+
+  // Group by student
+  const byStudent = {};
+  (data || []).forEach(o => {
+    const sid = o.student_id;
+    if (!byStudent[sid]) {
+      byStudent[sid] = {
+        studentId: sid,
+        studentName: o.student_name,
+        roomNo: o.room_no,
+        totalOrders: 0,
+        priorityOrders: 0,
+        missedSlots: 0,
+        statuses: {}
+      };
+    }
+    byStudent[sid].totalOrders++;
+    if (o.is_priority) byStudent[sid].priorityOrders++;
+    if (o.missed) byStudent[sid].missedSlots++;
+    byStudent[sid].statuses[o.status] = (byStudent[sid].statuses[o.status] || 0) + 1;
+  });
+
+  return Object.values(byStudent);
+}
+
+export async function getMissedOrders(startDate, endDate) {
+  const { data } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('missed', true)
+    .gte('submitted_at', startDate)
+    .lte('submitted_at', endDate)
+    .order('submitted_at', { ascending: false });
+
+  return (data || []).map(mapOrder);
+}
+
 // ── Realtime ──
 
-// Map the realtime payload recursively if needed or let the consumer fetch fresh mapped data. We'll simply let consumer fetch.
 let ordersChannel = null;
 export function subscribeToOrders(callback) {
   if (!ordersChannel) {
     ordersChannel = supabase.channel('orders-public-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        // Just trigger callback to let UI re-fetch
         callback(payload);
       })
       .subscribe();
@@ -382,3 +522,6 @@ export function subscribeToOrders(callback) {
     ordersChannel = null;
   };
 }
+
+// Re-export constraint helpers for convenience
+export { checkMonthlyLimit, checkActiveOrder, MONTHLY_LIMIT };

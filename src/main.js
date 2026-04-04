@@ -1,7 +1,7 @@
 // ── Chota Dhobi — Main Entry Point ──
 import './styles/index.css';
 import { registerRoute, initRouter } from './router.js';
-import { getCurrentUser, isStaff } from './services/database.js';
+import { getCurrentUser, isStaff, isAdmin } from './services/database.js';
 import { updateNavActive } from './components/nav.js';
 
 // ── Import Pages ──
@@ -13,6 +13,10 @@ import studentNotifications from './pages/student-notifications.js';
 import staffHome from './pages/staff-home.js';
 import staffUpdate from './pages/staff-update.js';
 import staffOrders from './pages/staff-orders.js';
+import adminHome from './pages/admin-home.js';
+import adminSchedules from './pages/admin-schedules.js';
+import adminAnalytics from './pages/admin-analytics.js';
+import adminTokens from './pages/admin-tokens.js';
 
 // ── Register Routes ──
 registerRoute('/login', loginPage);
@@ -24,6 +28,10 @@ registerRoute('/student/notifications', studentNotifications);
 registerRoute('/staff', staffHome);
 registerRoute('/staff/update', staffUpdate);
 registerRoute('/staff/orders', staffOrders);
+registerRoute('/admin', adminHome);
+registerRoute('/admin/schedules', adminSchedules);
+registerRoute('/admin/analytics', adminAnalytics);
+registerRoute('/admin/tokens', adminTokens);
 
 // ── Auth Guard ──
 function checkAuth() {
@@ -36,19 +44,31 @@ function checkAuth() {
   }
   
   if (user && (hash === '#/login' || hash === '' || hash === '#/')) {
-    window.location.hash = isStaff() ? '#/staff' : '#/student';
+    if (user.role === 'admin') {
+      window.location.hash = '#/admin';
+    } else if (user.role === 'staff') {
+      window.location.hash = '#/staff';
+    } else {
+      window.location.hash = '#/student';
+    }
     return;
   }
 
   // Prevent cross-domain navigation
-  if (user && isStaff() && hash.startsWith('#/student')) {
-    window.location.hash = '#/staff';
-    return;
-  }
-
-  if (user && !isStaff() && hash.startsWith('#/staff')) {
-    window.location.hash = '#/student';
-    return;
+  if (user) {
+    const role = user.role;
+    if (role === 'staff' && (hash.startsWith('#/student') || hash.startsWith('#/admin'))) {
+      window.location.hash = '#/staff';
+      return;
+    }
+    if (role === 'student' && (hash.startsWith('#/staff') || hash.startsWith('#/admin'))) {
+      window.location.hash = '#/student';
+      return;
+    }
+    if (role === 'admin' && (hash.startsWith('#/student') || hash.startsWith('#/staff'))) {
+      window.location.hash = '#/admin';
+      return;
+    }
   }
 }
 
@@ -75,7 +95,6 @@ function setupTheme() {
   const iconDark = toggleBtn?.querySelector('.icon-dark');
   const iconLight = toggleBtn?.querySelector('.icon-light');
   
-  // Initialize from storage or default to dark
   const currentTheme = localStorage.getItem('theme') || 'dark';
   document.documentElement.setAttribute('data-theme', currentTheme);
   
@@ -106,25 +125,17 @@ function setupTheme() {
 
 // ── Initialize App ──
 function init() {
-  // Setup theme
   setupTheme();
-  
-  // Check auth before routing
   checkAuth();
   
-  // Listen for hash changes to check auth
   window.addEventListener('hashchange', () => {
     checkAuth();
     updateNavActive();
   });
   
-  // Init router
   initRouter();
-  
-  // Setup offline detection
   setupOfflineDetection();
   
-  // Hide splash, show app
   const splash = document.getElementById('splash');
   const app = document.getElementById('app');
   

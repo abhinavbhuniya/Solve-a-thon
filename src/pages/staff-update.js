@@ -2,6 +2,7 @@
 // Zero-typing interface — all tap-based with large buttons
 import { getCurrentUser } from '../services/database.js';
 import { getTodaysOrders, updateOrderStatus, getOrderByToken } from '../services/database.js';
+import { getAllTokenStatuses } from '../services/token.js';
 import { showToast } from '../components/toast.js';
 import { renderNav, updateNavActive } from '../components/nav.js';
 
@@ -10,6 +11,14 @@ const STATUS_FLOW = [
   { status: 'washing', emoji: '🧺', label: 'Washing', tamil: 'துவைப்பு', color: 'var(--warning)' },
   { status: 'ready', emoji: '✅', label: 'Ready', tamil: 'தயார்', color: 'var(--success)' }
 ];
+
+const TOKEN_STATUS_COLORS = {
+  available: '#34D399',
+  in_use: '#60A5FA',
+  washing: '#FBBF24',
+  ready: '#10B981',
+  collected: '#9CA3AF'
+};
 
 export default async function staffUpdate(container) {
   const user = getCurrentUser();
@@ -24,7 +33,7 @@ export default async function staffUpdate(container) {
   let selectedOrder = null;
   let selectedStatus = null;
   let selectedRack = null;
-  let step = 'select-token'; // select-token → select-status → (select-rack) → confirm
+  let step = 'select-token';
 
   // Check if token was passed via URL
   const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
@@ -40,6 +49,7 @@ export default async function staffUpdate(container) {
 
   const todaysOrders = await getTodaysOrders();
   const usedTokens = new Map(todaysOrders.map(o => [o.tokenNo, o]));
+  const tokenStatuses = await getAllTokenStatuses();
 
   function render() {
     container.innerHTML = `
@@ -67,6 +77,14 @@ export default async function staffUpdate(container) {
   function renderTokenSelection() {
     return `
       <p class="text-sm text-secondary mb-4">Select token number / டோக்கன் எண் தேர்வு</p>
+
+      <!-- Token Status Legend -->
+      <div class="token-legend mb-4">
+        <div class="legend-item"><span class="legend-dot" style="background: #34D399"></span><span class="text-xs">Available</span></div>
+        <div class="legend-item"><span class="legend-dot" style="background: #60A5FA"></span><span class="text-xs">In Use</span></div>
+        <div class="legend-item"><span class="legend-dot" style="background: #FBBF24"></span><span class="text-xs">Washing</span></div>
+        <div class="legend-item"><span class="legend-dot" style="background: #10B981"></span><span class="text-xs">Ready</span></div>
+      </div>
       
       <!-- Active tokens (quick select) -->
       ${todaysOrders.length > 0 ? `
@@ -74,19 +92,23 @@ export default async function staffUpdate(container) {
           <h4 class="section-title">Active Tokens / செயலில் உள்ள டோக்கன்</h4>
         </div>
         <div class="flex flex-col gap-3 mb-6">
-          ${todaysOrders.filter(o => o.status !== 'collected').map(order => `
-            <div class="order-card" data-token-card="${order.tokenNo}" style="cursor: pointer;">
-              <div class="order-token">#${order.tokenNo}</div>
-              <div class="order-info">
-                <div class="order-name">${order.studentName}</div>
-                <div class="flex items-center gap-2">
-                  <span class="badge badge-${order.status}">${getStatusEmoji(order.status)} ${order.status}</span>
-                  <span class="text-xs text-secondary">Room ${order.roomNo}</span>
+          ${todaysOrders.filter(o => o.status !== 'collected').map(order => {
+            const tStatus = tokenStatuses[order.tokenNo]?.status || 'in_use';
+            const tColor = TOKEN_STATUS_COLORS[tStatus] || TOKEN_STATUS_COLORS.in_use;
+            return `
+              <div class="order-card" data-token-card="${order.tokenNo}" style="cursor: pointer; border-left: 3px solid ${tColor};">
+                <div class="order-token">#${order.tokenNo}</div>
+                <div class="order-info">
+                  <div class="order-name">${order.studentName}</div>
+                  <div class="flex items-center gap-2">
+                    <span class="badge badge-${order.status}">${getStatusEmoji(order.status)} ${order.status}</span>
+                    <span class="text-xs text-secondary">Room ${order.roomNo}</span>
+                  </div>
                 </div>
+                <span class="order-arrow">›</span>
               </div>
-              <span class="order-arrow">›</span>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       ` : ''}
 
@@ -98,11 +120,15 @@ export default async function staffUpdate(container) {
         ${Array.from({ length: 50 }, (_, i) => {
           const num = i + 1;
           const order = usedTokens.get(num);
+          const tStatus = tokenStatuses[num]?.status || 'available';
+          const tColor = TOKEN_STATUS_COLORS[tStatus];
           let cls = 'grid-btn';
           if (order) {
             cls += order.status === 'collected' ? ' done' : ' occupied';
           }
-          return `<button class="${cls}" data-token="${num}" title="${order ? order.studentName + ' - ' + order.status : 'Available'}">${num}</button>`;
+          return `<button class="${cls}" data-token="${num}" 
+                    style="${tStatus !== 'available' ? `border-left: 3px solid ${tColor};` : ''}"
+                    title="${order ? order.studentName + ' - ' + order.status : 'Available'}">${num}</button>`;
         }).join('')}
       </div>
     `;
@@ -110,8 +136,6 @@ export default async function staffUpdate(container) {
 
   function renderStatusSelection() {
     if (!selectedOrder) return '<p>No order found for this token.</p>';
-
-    // Calculate index relative to STATUS_FLOW to align with the rendered buttons
     const currentIdx = STATUS_FLOW.findIndex(s => s.status === selectedOrder.status);
 
     return `
@@ -214,7 +238,6 @@ export default async function staffUpdate(container) {
   }
 
   function attachHandlers() {
-    // Back button
     container.querySelector('#back-btn')?.addEventListener('click', () => {
       if (step === 'confirm') { step = 'select-token'; selectedToken = null; selectedOrder = null; selectedStatus = null; selectedRack = null; }
       else if (step === 'select-rack') { step = 'select-status'; selectedRack = null; }
@@ -222,39 +245,31 @@ export default async function staffUpdate(container) {
       render();
     });
 
-    // Token card click
     container.querySelectorAll('[data-token-card]').forEach(card => {
       card.addEventListener('click', () => {
-        const tokenNo = parseInt(card.dataset.tokenCard);
-        selectToken(tokenNo);
+        selectToken(parseInt(card.dataset.tokenCard));
       });
     });
 
-    // Token grid click
     container.querySelectorAll('[data-token]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const tokenNo = parseInt(btn.dataset.token);
-        selectToken(tokenNo);
+        selectToken(parseInt(btn.dataset.token));
       });
     });
 
-    // Status buttons
     container.querySelectorAll('[data-status]').forEach(btn => {
       btn.addEventListener('click', () => {
         selectedStatus = btn.dataset.status;
         if (navigator.vibrate) navigator.vibrate(20);
-
         if (selectedStatus === 'ready') {
           step = 'select-rack';
           render();
         } else {
-          // Direct update
           performUpdate();
         }
       });
     });
 
-    // Rack selection
     container.querySelectorAll('[data-rack]').forEach(btn => {
       btn.addEventListener('click', () => {
         selectedRack = parseInt(btn.dataset.rack);
@@ -263,17 +278,12 @@ export default async function staffUpdate(container) {
       });
     });
 
-    // Confirm rack
     container.querySelector('#confirm-rack-btn')?.addEventListener('click', () => {
       performUpdate();
     });
 
-    // Update another
     container.querySelector('#update-another-btn')?.addEventListener('click', () => {
-      selectedToken = null;
-      selectedOrder = null;
-      selectedStatus = null;
-      selectedRack = null;
+      selectedToken = null; selectedOrder = null; selectedStatus = null; selectedRack = null;
       step = 'select-token';
       render();
     });
@@ -289,7 +299,6 @@ export default async function staffUpdate(container) {
       showToast('This order is already collected / ஏற்கனவே சேகரிக்கப்பட்டது', 'info');
       return;
     }
-
     selectedToken = tokenNo;
     selectedOrder = order;
     step = 'select-status';
@@ -299,12 +308,10 @@ export default async function staffUpdate(container) {
 
   async function performUpdate() {
     const result = await updateOrderStatus(selectedOrder.id, selectedStatus, { rackNo: selectedRack });
-    
     if (result.error) {
       showToast(result.error, 'error');
       return;
     }
-
     selectedOrder = result.order;
     step = 'confirm';
     if (navigator.vibrate) navigator.vibrate([50, 50, 50]);

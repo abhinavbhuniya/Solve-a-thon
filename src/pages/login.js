@@ -1,4 +1,4 @@
-import { loginAsStudent, loginAsStaff, quickLoginStudent } from '../services/database.js';
+import { loginAsStudent, loginAsStaff, loginAsAdmin, quickLoginStudent } from '../services/database.js';
 import { showToast } from '../components/toast.js';
 import { hideNav } from '../components/nav.js';
 import { validateRegistration, getBlocksForGender, parseRoom } from '../utils/validation.js';
@@ -17,6 +17,7 @@ export default function loginPage(container) {
         <button class="tab active" id="tab-student-login" data-tab="student-login">🎓 Login</button>
         <button class="tab" id="tab-student-reg" data-tab="student-reg">✏️ Register</button>
         <button class="tab" id="tab-staff" data-tab="staff">👷 Staff</button>
+        <button class="tab" id="tab-admin" data-tab="admin">⚙️ Admin</button>
       </div>
 
       <!-- Quick Login Form -->
@@ -85,31 +86,41 @@ export default function loginPage(container) {
         </button>
         <p class="text-center text-xs text-secondary mt-4" style="opacity: 0.5;">Demo PIN: 1234</p>
       </form>
+
+      <!-- Admin Login Form -->
+      <form id="admin-form" class="login-form hidden">
+        <div style="text-align:center; margin-bottom: var(--space-4);">
+          <div style="font-size:3rem; margin-bottom: var(--space-2);">⚙️</div>
+          <p class="text-secondary text-sm">Admin access for schedule & analytics management</p>
+        </div>
+        <div class="input-group">
+          <label for="admin-pin">Admin PIN</label>
+          <input type="password" id="admin-pin" class="input" placeholder="Enter admin PIN" 
+                 maxlength="4" inputmode="numeric" pattern="[0-9]*" style="text-align:center; font-size: var(--font-size-2xl); letter-spacing: 0.5em;" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg btn-block mt-4" id="login-admin-btn">
+          ⚙️ Login as Admin
+        </button>
+        <p class="text-center text-xs text-secondary mt-4" style="opacity: 0.5;">Demo PIN: 9999</p>
+      </form>
     </div>
   `;
 
   // Tab switching
   const tabs = container.querySelectorAll('.tab');
-  const studentLoginForm = container.querySelector('#student-login-form');
-  const studentRegForm = container.querySelector('#student-reg-form');
-  const staffForm = container.querySelector('#staff-form');
+  const forms = {
+    'student-login': container.querySelector('#student-login-form'),
+    'student-reg': container.querySelector('#student-reg-form'),
+    'staff': container.querySelector('#staff-form'),
+    'admin': container.querySelector('#admin-form')
+  };
 
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-
-      studentLoginForm.classList.add('hidden');
-      studentRegForm.classList.add('hidden');
-      staffForm.classList.add('hidden');
-
-      if (tab.dataset.tab === 'student-login') {
-        studentLoginForm.classList.remove('hidden');
-      } else if (tab.dataset.tab === 'student-reg') {
-        studentRegForm.classList.remove('hidden');
-      } else {
-        staffForm.classList.remove('hidden');
-      }
+      Object.values(forms).forEach(f => f.classList.add('hidden'));
+      forms[tab.dataset.tab]?.classList.remove('hidden');
     });
   });
 
@@ -129,7 +140,7 @@ export default function loginPage(container) {
   });
 
   // Quick Login (Existing Student)
-  studentLoginForm.addEventListener('submit', async (e) => {
+  container.querySelector('#student-login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = container.querySelector('#login-student-btn');
     btn.innerHTML = 'Signing in...';
@@ -161,7 +172,7 @@ export default function loginPage(container) {
   });
 
   // Register New Student
-  studentRegForm.addEventListener('submit', async (e) => {
+  container.querySelector('#student-reg-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = container.querySelector('#register-student-btn');
     btn.innerHTML = 'Registering...';
@@ -211,7 +222,7 @@ export default function loginPage(container) {
   });
 
   // Staff login
-  staffForm.addEventListener('submit', (e) => {
+  container.querySelector('#staff-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const pin = container.querySelector('#staff-pin').value.trim();
 
@@ -227,6 +238,26 @@ export default function loginPage(container) {
     } else {
       showToast('Invalid PIN — தவறான PIN', 'error');
       container.querySelector('#staff-pin').value = '';
+    }
+  });
+
+  // Admin login
+  container.querySelector('#admin-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const pin = container.querySelector('#admin-pin').value.trim();
+
+    if (!pin) {
+      showToast('Please enter the admin PIN', 'error');
+      return;
+    }
+
+    const user = loginAsAdmin(pin);
+    if (user) {
+      showToast('Welcome, Admin! ⚙️', 'success');
+      window.location.hash = '#/admin';
+    } else {
+      showToast('Invalid admin PIN', 'error');
+      container.querySelector('#admin-pin').value = '';
     }
   });
 }
